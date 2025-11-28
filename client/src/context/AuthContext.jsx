@@ -11,48 +11,50 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    // Load user from localStorage on mount
     useEffect(() => {
         const access = localStorage.getItem("access");
-        const username = localStorage.getItem("username");
-        const userId = localStorage.getItem("userId");
+        const storedUser = localStorage.getItem("user");
 
-        if (access && username) {
-            setUser({ username,userId });
+        if (access && storedUser) {
+            setUser(JSON.parse(storedUser));
             setIsAuthenticated(true);
         }
     }, []);
 
-    const login = async (username, password) => {
+    // Login function
+    const login = async (email, password) => {
         try {
-            const res = await api.post("/login/", { username, password });
+            const res = await api.post("/login/", { email, password });
 
-            const access = res.data.access;
-            const refresh = res.data.refresh;
-            const userId = res.data.user_id; 
+            const { access, refresh, user_id, email: userEmail, username } = res.data;
 
+            // Save tokens
             localStorage.setItem("access", access);
             localStorage.setItem("refresh", refresh);
-            localStorage.setItem("username", username);
-            localStorage.setItem("userId", userId);  
 
-            setUser({ username, userId });
+            // Save complete user info
+            const userObj = { id: user_id, email: userEmail, username };
+            localStorage.setItem("user", JSON.stringify(userObj));
+
+            setUser(userObj);
             setIsAuthenticated(true);
 
             toast.success("Logged in successfully!");
             navigate("/");
+
             return true;
         } catch (err) {
-            toast.error("Invalid username or password");
+            toast.error("Invalid email or password");
             return false;
         }
     };
 
-
+    // Logout function
     const logout = () => {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
-        localStorage.removeItem("username");
-        localStorage.removeItem("userId"); 
+        localStorage.removeItem("user");
 
         setUser(null);
         setIsAuthenticated(false);
@@ -62,9 +64,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{
-            user, isAuthenticated, login, logout, navigate
-        }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                isAuthenticated,
+                login,
+                logout,
+                navigate,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );

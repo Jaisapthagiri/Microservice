@@ -1,5 +1,5 @@
 import Chat from "../models/Chat.js";
-import { io,userSocketMap } from "../socketStore.js"; 
+import { io, userSocketMap } from "../socketStore.js";
 
 export const sendMessage = async (req, res) => {
   const { receiverId, text } = req.body;
@@ -15,7 +15,6 @@ export const sendMessage = async (req, res) => {
       return res.status(401).json({ error: "Unauthorized: senderId missing" });
     }
 
-    // Save message to DB
     const chat = await Chat.create({ senderId, receiverId, text });
 
     const msgPayload = {
@@ -44,7 +43,7 @@ export const sendMessage = async (req, res) => {
 
 export const getMessages = async (req, res) => {
   const { userId } = req.params;
-  const senderId = req.userId; 
+  const senderId = req.userId;
 
   if (!senderId || !userId) {
     return res.status(400).json({ error: "Invalid request" });

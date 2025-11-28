@@ -12,8 +12,8 @@ const ChatWindow = () => {
   const msgs = selectedUser ? messages[selectedUser._id] || [] : [];
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs.length]);
 
   if (!selectedUser)
     return (
@@ -34,21 +34,22 @@ const ChatWindow = () => {
       <div className="p-4 border-b font-semibold bg-white">{selectedUser.name}</div>
 
       <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
-        {msgs.map((m, idx) => (
-          <div
-            key={m._id || idx}
-            className={`p-2 mb-2 rounded-lg max-w-xs ${
-              m.senderId === user.userId
-                ? "ml-auto bg-blue-500 text-white"
-                : "mr-auto bg-white border"
-            }`}
-          >
-            {m.text}
-            <div className="text-xs opacity-70 mt-1">
-              {new Date(m.createdAt).toLocaleTimeString()}
+        {msgs.map((m, idx) => {
+          const isSender = m.senderId.toString() === user.id.toString();
+          return (
+            <div
+              key={m._id ? m._id.toString() : idx}
+              className={`p-2 mb-2 rounded-lg max-w-xs ${
+                isSender ? "ml-auto bg-blue-500 text-white" : "mr-auto bg-white border"
+              }`}
+            >
+              {m.text}
+              <div className="text-xs opacity-70 mt-1">
+                {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef}></div>
       </div>
 

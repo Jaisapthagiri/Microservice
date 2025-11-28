@@ -16,9 +16,8 @@ export const ChatProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
 
   // 1️⃣ Fetch all users from Django
-
   const getUsers = async () => {
-    if (!user?.userId) return;
+    if (!user?.id) return;
 
     try {
       const token = localStorage.getItem("access");
@@ -29,8 +28,8 @@ export const ChatProvider = ({ children }) => {
       });
 
       const others = res.data
-        .filter((u) => u.id !== user.userId)
-        .map((u) => ({ _id: u.id, name: u.username }));
+        .filter((u) => u.id !== user.id)
+        .map((u) => ({ _id: u.id.toString(), name: u.username }));
 
       setUsers(others);
     } catch (err) {
@@ -38,16 +37,14 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // Fetch users on mount or when user changes
   useEffect(() => {
-    const token = localStorage.getItem("access");
-    if (!user?.userId || !token) return;
     getUsers();
   }, [user]);
 
-  // 2️⃣ Connect to Node Socket.IO
-
+  // 2️⃣ Initialize Socket.IO connection
   useEffect(() => {
-    if (!user?.userId) return;
+    if (!user?.id) return;
 
     const token = localStorage.getItem("access");
     if (!token) return;
@@ -59,32 +56,30 @@ export const ChatProvider = ({ children }) => {
 
     setSocket(s);
 
-    // Online users
-
-    s.on("getConnection", (ids) => {
-      const others = ids.filter((id) => id !== user.userId);
+    // Listen online users
+    s.on("onlineUsers", (ids) => {
+      const others = ids.map(String).filter((id) => id !== user.id.toString());
       setOnlineUsers(others);
     });
 
+    // Listen incoming messages
     const handleMessage = (msg) => {
       setMessages((prev) => {
-        const chatId = msg.senderId === user.userId ? msg.receiverId : msg.senderId;
-
+        const chatId = msg.senderId === user.id ? msg.receiverId : msg.senderId;
         const prevMsgs = prev[chatId] || [];
 
-        const exists = prevMsgs.some(
-          (m) =>
-            m.text === msg.text &&
-            new Date(m.createdAt).getTime() === new Date(msg.createdAt).getTime()
+        // Remove temp version of this message if it exists
+        const filteredMsgs = prevMsgs.filter(
+          (m) => !(m._temp && m.text === msg.text && m.senderId === msg.senderId)
         );
-        if (exists) return prev;
 
         return {
           ...prev,
-          [chatId]: [...prevMsgs, msg],
+          [chatId]: [...filteredMsgs, msg],
         };
       });
     };
+
 
     s.on("receiveMessage", handleMessage);
 
@@ -95,43 +90,67 @@ export const ChatProvider = ({ children }) => {
   }, [user]);
 
   // 3️⃣ Open chat and load messages
-
   const openChat = async (otherUser) => {
     setSelectedUser(otherUser);
 
     try {
-      const res = await nodeApi.get(`/api/chat/messages/${otherUser._id}`, {
-        params: { senderId: user.userId },
-      });
-
+      const res = await nodeApi.get(`/api/chat/messages/${otherUser._id}`);
       setMessages((prev) => ({
         ...prev,
-        [otherUser._id]: res.data,
+        [otherUser._id]: res.data || [],
       }));
     } catch (err) {
       console.log("Error loading chat:", err);
+      setMessages((prev) => ({
+        ...prev,
+        [otherUser._id]: [],
+      }));
     }
   };
 
   // 4️⃣ Send message
-
   const sendMessage = async (receiverId, text) => {
-    if (!text.trim() || !user?.userId) return;
+    if (!text.trim() || !user?.id) return;
 
-    const newMsg = { senderId: user.userId, receiverId, text, createdAt: new Date() };
+    // Create a temporary message object for instant display
+    const newMsg = { senderId: user.id, receiverId, text, createdAt: new Date(), _temp: true };
+
+    // Optimistically update UI
+    setMessages((prev) => {
+      const prevMsgs = prev[receiverId] || [];
+      return {
+        ...prev,
+        [receiverId]: [...prevMsgs, newMsg],
+      };
+    });
 
     try {
-      await nodeApi.post("/api/chat/send", newMsg);
+      await nodeApi.post("/api/chat/send", { receiverId, text });
+      // no need to update again; socket will emit
     } catch (err) {
       console.log("Send message error:", err);
+      // Optionally remove temporary message on error
+      setMessages((prev) => {
+        const prevMsgs = prev[receiverId] || [];
+        return {
+          ...prev,
+          [receiverId]: prevMsgs.filter((m) => m._temp !== true || m.text !== text),
+        };
+      });
     }
   };
 
   return (
     <ChatContext.Provider
       value={{
-        socket, onlineUsers, selectedUser, setSelectedUser: openChat,
-        messages, sendMessage, users, getUsers,
+        socket,
+        onlineUsers,
+        selectedUser,
+        setSelectedUser: openChat,
+        messages,
+        sendMessage,
+        users,
+        getUsers,
       }}
     >
       {children}
@@ -140,4 +159,4 @@ export const ChatProvider = ({ children }) => {
 };
 
 export const useChatContext = () => useContext(ChatContext);
-export const useChat = () => useContext(ChatContext); 
+export const useChat = () => useContext(ChatContext);

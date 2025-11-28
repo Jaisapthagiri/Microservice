@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 
 const Login = () => {
     const { login } = useAuthContext();
-    const [state, setState] = useState("login"); 
+    const [state, setState] = useState("login");
     const [formData, setFormData] = useState({
         username: "",
         email: "",
@@ -16,13 +16,17 @@ const Login = () => {
         e.preventDefault();
 
         if (state === "login") {
-            // LOGIN
-            const success = await login(formData.username, formData.password);
-            if (!success) toast.error("Invalid username or password");
+
+            const success = await login(formData.email, formData.password);
+
+            if (!success) {
+                toast.error("Invalid email or password");
+            }
+
         } else {
             // REGISTER
             try {
-                const res = await api.post("/register/", {
+                await api.post("/register/", {
                     username: formData.username,
                     email: formData.email,
                     password: formData.password
@@ -30,11 +34,10 @@ const Login = () => {
 
                 toast.success("Account created! Logging in...");
 
-                await login(formData.username, formData.password);
+                await login(formData.email, formData.password);
 
             } catch (err) {
-                console.log(err.response || err);
-                toast.error(err.response?.data?.error || "Registration failed");
+                toast.error("Registration failed");
             }
         }
     };
@@ -52,37 +55,35 @@ const Login = () => {
                 {state === "login" ? "Login" : "Sign Up"}
             </h1>
 
-            <p className="text-gray-500 text-sm mt-2">
-                Please enter your details
-            </p>
+            <p className="text-gray-500 text-sm mt-2">Please enter your details</p>
 
-            {/* USERNAME */}
-            <div className="flex items-center mt-6 w-full bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">
-                <input
-                    type="text"
-                    name="username"
-                    placeholder="Username"
-                    className="border-none outline-none ring-0 w-full"
-                    value={formData.username}
-                    onChange={handleChange}
-                    required
-                />
-            </div>
-
-            {/* EMAIL (only for register) */}
+            {/* USERNAME (only for register) */}
             {state === "register" && (
-                <div className="flex items-center w-full mt-4 bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">
+                <div className="flex items-center mt-6 w-full bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">
                     <input
-                        type="email"
-                        name="email"
-                        placeholder="Email"
+                        type="text"
+                        name="username"
+                        placeholder="Username"
                         className="border-none outline-none ring-0 w-full"
-                        value={formData.email}
+                        value={formData.username}
                         onChange={handleChange}
                         required
                     />
                 </div>
             )}
+
+            {/* EMAIL */}
+            <div className="flex items-center mt-4 w-full bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    className="border-none outline-none ring-0 w-full"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                />
+            </div>
 
             {/* PASSWORD */}
             <div className="flex items-center mt-4 w-full bg-white border border-gray-300/80 h-12 rounded-full overflow-hidden pl-6 gap-2">
